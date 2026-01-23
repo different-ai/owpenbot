@@ -11,23 +11,27 @@ const program = new Command();
 
 program.name("owpenbot").description("OpenCode WhatsApp + Telegram bridge");
 
+const runStart = async () => {
+  const config = loadConfig();
+  const logger = createLogger(config.logLevel);
+  const bridge = await startBridge(config, logger);
+
+  const shutdown = async () => {
+    logger.info("shutting down");
+    await bridge.stop();
+    process.exit(0);
+  };
+
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+};
+
 program
   .command("start")
   .description("Start the bridge")
-  .action(async () => {
-    const config = loadConfig();
-    const logger = createLogger(config.logLevel);
-    const bridge = await startBridge(config, logger);
+  .action(runStart);
 
-    const shutdown = async () => {
-      logger.info("shutting down");
-      await bridge.stop();
-      process.exit(0);
-    };
-
-    process.on("SIGINT", shutdown);
-    process.on("SIGTERM", shutdown);
-  });
+program.action(runStart);
 
 program
   .command("pairing-code")

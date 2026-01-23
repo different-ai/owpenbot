@@ -10,7 +10,7 @@ One-command install (recommended):
 curl -fsSL https://raw.githubusercontent.com/different-ai/openwork/dev/packages/owpenbot/install.sh | bash
 ```
 
-Then follow the printed next steps (edit `.env`, pair WhatsApp, start the bridge).
+Then follow the printed next steps (edit `.env`, run `owpenbot`).
 
 1) One-command setup (installs deps, builds, creates `.env` if missing):
 
@@ -29,17 +29,13 @@ Recommended:
 - `OPENCODE_SERVER_USERNAME`
 - `OPENCODE_SERVER_PASSWORD`
 
-3) Pair WhatsApp (first time only):
+3) Run the bridge:
 
 ```bash
-pnpm -C packages/owpenbot whatsapp:login
+owpenbot
 ```
 
-4) Launch the bridge:
-
-```bash
-pnpm -C packages/owpenbot start
-```
+Owpenbot prints a QR code if WhatsApp is not paired and keeps the session alive once connected.
 
 5) Pair a user with the bot:
 
@@ -53,7 +49,7 @@ pnpm -C packages/owpenbot start
 
 Use your own WhatsApp account as the bot and test from a second number you control.
 
-1) Pair WhatsApp using your personal number (`whatsapp:login`).
+1) Pair WhatsApp using your personal number (just run `owpenbot` to show the QR).
 2) Send the pairing code from a second number (SIM/eSIM or another phone).
 3) Chat from that second number to receive OpenCode replies.
 
@@ -64,7 +60,7 @@ Note: WhatsApp’s “message yourself” thread is not reliable for bot testing
 Use a separate WhatsApp number as the bot account so it stays independent from your personal chat history.
 
 1) Create a new WhatsApp account for the dedicated number.
-2) Pair that account with `whatsapp:login`.
+2) Pair that account by running `owpenbot` and scanning the QR.
 3) Share the pairing code with the person who should use the bot.
 4) Optionally pre-allowlist specific numbers with `ALLOW_FROM_WHATSAPP=`.
 
@@ -77,8 +73,7 @@ Telegram support is wired but not E2E tested yet. To try it:
 ## Commands
 
 ```bash
-pnpm -C packages/owpenbot start
-pnpm -C packages/owpenbot whatsapp:login
+owpenbot
 pnpm -C packages/owpenbot pairing-code
 ```
 
