@@ -168,7 +168,7 @@ export async function loginWhatsApp(config: Config, logger: Logger) {
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
 
-  await new Promise<void>((resolve) => {
+  await new Promise<void>((resolve, reject) => {
     let finished = false;
     const sock = makeWASocket({
       auth: {
@@ -212,8 +212,14 @@ export async function loginWhatsApp(config: Config, logger: Logger) {
           | { error?: { output?: { statusCode?: number } } }
           | undefined;
         const statusCode = lastDisconnect?.error?.output?.statusCode;
-        if (statusCode === 515 && state.creds?.registered) {
-          finish("connection.close.registered");
+        if (statusCode === 515) {
+          if (state.creds?.registered) {
+            log.info("whatsapp login requires reconnect; completing login");
+            finish("connection.restart.required");
+            return;
+          }
+          log.warn("whatsapp restart requested before creds registered");
+          reject(new Error("WhatsApp login restart required"));
           return;
         }
         if (state.creds?.registered) {
