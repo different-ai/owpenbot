@@ -10,38 +10,6 @@ import { loginWhatsApp, unpairWhatsApp } from "./whatsapp.js";
 
 const program = new Command();
 
-const LOGO = `▓▓▓▓▓▓▒
-░▓▓▓▓    ░▓▓▓▓
-▓▓▓▓▓           ▓▓▓▓
-▓▓▓▓▒                 ▓▓▓▓▒
-▓▓▓▓                     ▓▓▓▓▓▓▓░
-▒▓▓▓▓                    ░▓▓▓▓     ▓▓▓
-▓▓▓▓▒                    ▓▓▓▓▓          ▓▓
-▓▓▓▓                     ▓▓▓▓▒             ▓▓
-▓▓▓▓                     ▓▓▓▓                 ▓▓
-
-▒▓▓▓                ▓▓▓▓              ▓▓▓▓▓        ▓▓
-▓▓               ▓▓▓             ░▓▓▓▓  ▓▓        ▓▓
-▒▓▓             ▓▓▓            ▓▓▓▓▓     ▓▓        ▓▓
-▓▓             ▓▓▓          ▓▓▓▓         ▓▓        ▓▓
-▓▓            ▓▓░         ▓▓▓            ▓▓        ▓▓
-▓▓            ▓▓         ▓▓              ▓▓        ▓▓
-▓▓           ▓▓▒        ▓▓           ▓▓▓▓▓▓        ▓▓
-▓▓           ▓▓░        ▓▓        ▓▓▓▓▒  ▓   ▓▓
-▓▓           ▓▓░        ▓▓▓▓▒            ▓▓        ▓▓
-▓▓           ▓▓░        ▓▓              ░▓▓        ▓▓
-▓▓           ▓▓░        ▓▓              ▓▓         ▓▓
-▓▓           ▓▓░        ▓▓            ▓▓▓         ▓▓
-▓▓           ▓▓░        ▓▓         ▓▓▓▓          ▓▓
-▓▓           ▓▓░        ▓▓     ░▓▓▓▓            ▓▓▒
-▓▓           ▓▓░        ▓▓  ▓▓▓▓▓             ▓▓▓
-▓▓           ▓▓░        ▓▓▓▓▓▒      ▓▓
-▓▓▓         ▓▓░                  ▓▓▓▓▓
-▓▓▓▓      ▓▓░               ▓▓▓▓░
-▓▓▓▓░  ▒▓░           ░▓▓▓▓
-▓▓▓▓▓▓▓        ▓▓▓▓▓
-░▓▓▓▓▓   ▓▓▓▓▒
-▒▓▓▓▓▓▓`;
 
 program
   .name("owpenbot")
@@ -51,7 +19,6 @@ program
   .argument("[path]");
 
 const runStart = async () => {
-  console.log(LOGO);
   const config = loadConfig();
   const logger = createLogger(config.logLevel);
   if (!process.env.OPENCODE_DIRECTORY) {
@@ -81,10 +48,9 @@ program.action(async () => {
     return;
   }
 
-  console.log(LOGO);
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const answer = await rl.question(
-    "Choose: (1) Start bridge (2) Show QR (3) Unpair (4) Pairing code > ",
+    "Owpenbot options: (1) Start bridge (2) Show QR (3) Unpair (4) Pairing code > ",
   );
   rl.close();
 
