@@ -326,11 +326,12 @@ program
     const config = loadConfig(process.env, { requireOpencode: false });
     const authPath = `${config.whatsappAuthDir}/creds.json`;
     if (!fs.existsSync(authPath)) {
-      console.log("WhatsApp not linked. Run: owpenbot whatsapp login");
+      console.log("WhatsApp not linked. Run: owpenwork whatsapp login");
     } else {
       console.log("WhatsApp linked.");
     }
-    console.log("If replies fail, ensure OpenCode server is running at OPENCODE_URL.");
+    console.log(`OpenCode URL: ${config.opencodeUrl}`);
+    console.log("If replies fail, ensure the server is running.");
   });
 
 program.parseAsync(process.argv).catch((error) => {
