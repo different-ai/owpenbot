@@ -6,6 +6,39 @@ OWPENBOT_REPO="${OWPENBOT_REPO:-https://github.com/different-ai/openwork.git}"
 OWPENBOT_INSTALL_DIR="${OWPENBOT_INSTALL_DIR:-$HOME/.owpenbot/openwork}"
 OWPENBOT_BIN_DIR="${OWPENBOT_BIN_DIR:-$HOME/.local/bin}"
 
+LOGO='▓▓▓▓▓▓▒
+░▓▓▓▓    ░▓▓▓▓
+▓▓▓▓▓           ▓▓▓▓
+▓▓▓▓▒                 ▓▓▓▓▒
+▓▓▓▓                     ▓▓▓▓▓▓▓░
+▒▓▓▓▓                    ░▓▓▓▓     ▓▓▓
+▓▓▓▓▒                    ▓▓▓▓▓          ▓▓
+▓▓▓▓                     ▓▓▓▓▒             ▓▓
+▓▓▓▓                     ▓▓▓▓                 ▓▓
+
+▒▓▓▓                ▓▓▓▓              ▓▓▓▓▓        ▓▓
+▓▓               ▓▓▓             ░▓▓▓▓  ▓▓        ▓▓
+▒▓▓             ▓▓▓            ▓▓▓▓▓     ▓▓        ▓▓
+▓▓             ▓▓▓          ▓▓▓▓         ▓▓        ▓▓
+▓▓            ▓▓░         ▓▓▓            ▓▓        ▓▓
+▓▓            ▓▓         ▓▓              ▓▓        ▓▓
+▓▓           ▓▓▒        ▓▓           ▓▓▓▓▓▓        ▓▓
+▓▓           ▓▓░        ▓▓        ▓▓▓▓▒  ▓   ▓▓
+▓▓           ▓▓░        ▓▓▓▓▒            ▓▓        ▓▓
+▓▓           ▓▓░        ▓▓              ░▓▓        ▓▓
+▓▓           ▓▓░        ▓▓              ▓▓         ▓▓
+▓▓           ▓▓░        ▓▓            ▓▓▓         ▓▓
+▓▓           ▓▓░        ▓▓         ▓▓▓▓          ▓▓
+▓▓           ▓▓░        ▓▓     ░▓▓▓▓            ▓▓▒
+▓▓           ▓▓░        ▓▓  ▓▓▓▓▓             ▓▓▓
+▓▓           ▓▓░        ▓▓▓▓▓▒      ▓▓
+▓▓▓         ▓▓░                  ▓▓▓▓▓
+▓▓▓▓      ▓▓░               ▓▓▓▓░
+▓▓▓▓░  ▒▓░           ░▓▓▓▓
+▓▓▓▓▓▓▓        ▓▓▓▓▓
+░▓▓▓▓▓   ▓▓▓▓▒
+▒▓▓▓▓▓▓'
+
 usage() {
   cat <<'EOF'
 Owpenbot installer (WhatsApp-first)
@@ -32,6 +65,8 @@ require_bin() {
     exit 1
   fi
 }
+
+echo "$LOGO"
 
 require_bin git
 require_bin node
