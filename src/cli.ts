@@ -23,6 +23,7 @@ const program = new Command();
 
 program
   .name("owpenbot")
+  .version("0.1.3")
   .description("OpenCode WhatsApp + Telegram bridge")
   .argument("[path]")
   .option("--non-interactive", "Run setup defaults and exit", false)
