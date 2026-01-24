@@ -197,7 +197,7 @@ export async function loginWhatsApp(config: Config, logger: Logger) {
         finish("creds.registered");
       }
     });
-    sock.ev.on("connection.update", (update: { connection?: string; qr?: string }) => {
+    sock.ev.on("connection.update", (update: { connection?: string; qr?: string; lastDisconnect?: unknown }) => {
       if (update.qr) {
         qrcode.generate(update.qr, { small: true });
         log.info("scan the QR code to connect WhatsApp");
@@ -207,8 +207,18 @@ export async function loginWhatsApp(config: Config, logger: Logger) {
         finish("connection.open");
       }
 
-      if (update.connection === "close" && state.creds?.registered) {
-        finish("connection.close.registered");
+      if (update.connection === "close") {
+        const lastDisconnect = update.lastDisconnect as
+          | { error?: { output?: { statusCode?: number } } }
+          | undefined;
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        if (statusCode === 515 && state.creds?.registered) {
+          finish("connection.close.registered");
+          return;
+        }
+        if (state.creds?.registered) {
+          finish("connection.close.registered");
+        }
       }
     });
   });

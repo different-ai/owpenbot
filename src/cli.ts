@@ -27,9 +27,10 @@ import {
 } from "./config.js";
 import { BridgeStore } from "./db.js";
 import { createLogger } from "./logger.js";
+import { createClient } from "./opencode.js";
 import { loginWhatsApp, unpairWhatsApp } from "./whatsapp.js";
 
-const VERSION = "0.1.8";
+const VERSION = "0.1.9";
 
 type SetupStep = "config" | "whatsapp" | "telegram" | "start";
 
@@ -553,6 +554,15 @@ program
       console.log("WhatsApp linked.");
     }
     console.log(`OpenCode URL: ${config.opencodeUrl}`);
+    try {
+      const client = createClient(config);
+      const health = await client.global.health();
+      const healthy = Boolean((health as { healthy?: boolean }).healthy);
+      console.log(`OpenCode reachable: ${healthy ? "yes" : "no"}`);
+    } catch (error) {
+      console.log("OpenCode reachable: no");
+      console.log(`Error: ${String(error)}`);
+    }
     console.log("If replies fail, ensure the server is running.");
 
     const resetRequested = Boolean(opts.reset);
