@@ -43,7 +43,7 @@ program
   .action(runStart);
 
 program.action(async () => {
-  if (process.argv.length > 2) {
+  if (!process.stdin.isTTY) {
     await runStart();
     return;
   }
