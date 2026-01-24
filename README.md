@@ -22,7 +22,7 @@ Quick run without install:
 npx owpenwork
 ```
 
-Then follow the prompts (setup, QR login, start).
+Then follow the guided setup (choose what to configure, link WhatsApp, start).
 
 1) One-command setup (installs deps, builds, creates `.env` if missing):
 
@@ -79,17 +79,20 @@ Use a separate WhatsApp number as the bot account so it stays independent from y
 ## Telegram (Untested)
 
 Telegram support is wired but not E2E tested yet. To try it:
-- Set `TELEGRAM_BOT_TOKEN`.
-- Optionally set `TELEGRAM_ENABLED=true`.
+- Run `owpenwork login telegram --token <token>`.
+- Or set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_ENABLED=true`.
 
 ## Commands
 
 ```bash
 owpenwork
 owpenwork --non-interactive
+owpenwork login whatsapp
+owpenwork login telegram --token <token>
 owpenwork pairing list
 owpenwork pairing approve <code>
 owpenwork status
+owpenwork doctor --reset
 ```
 
 ## Defaults

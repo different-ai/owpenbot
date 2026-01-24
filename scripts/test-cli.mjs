@@ -85,16 +85,21 @@ async function runSetupInteractive() {
     OWPENBOT_DB_PATH: path.join(tempDir, "owpenbot.db"),
     OWPENBOT_CONFIG_PATH: path.join(tempDir, "owpenbot.json"),
     OPENCODE_DIRECTORY: tempDir,
+    OWPENWORK_TEST_SELECTIONS: "config",
+    OWPENWORK_TEST_SETUP: "personal",
+    OWPENWORK_FORCE_TUI: "1",
   };
-  const input = "1\n+15551234567\n";
   const result = await run("node", ["--no-warnings", cliPath], {
     env,
-    timeoutMs: 1500,
-    expectTimeout: true,
+    timeoutMs: 5000,
   });
   const output = `${result.stdout}${result.stderr}`;
-  if (!output.includes("WhatsApp setup")) {
+  if (!output.includes("Owpenwork Setup")) {
     throw new Error("Interactive setup prompt not detected");
+  }
+  const cfg = await fs.readFile(path.join(tempDir, "owpenbot.json"), "utf-8");
+  if (!cfg.includes("+15551234567")) {
+    throw new Error("Interactive config missing allowlist number");
   }
 }
 

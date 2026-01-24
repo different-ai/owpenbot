@@ -29,6 +29,10 @@ export type OwpenbotConfigFile = {
         }
       >;
     };
+    telegram?: {
+      token?: string;
+      enabled?: boolean;
+    };
   };
 };
 
@@ -208,6 +212,8 @@ export function loadConfig(
   const toolOutputLimit = parseInteger(env.TOOL_OUTPUT_LIMIT) ?? 1200;
   const permissionMode = env.PERMISSION_MODE?.toLowerCase() === "deny" ? "deny" : "allow";
 
+  const telegramToken = env.TELEGRAM_BOT_TOKEN?.trim() || configFile.channels?.telegram?.token || undefined;
+
   return {
     configPath,
     configFile,
@@ -215,8 +221,11 @@ export function loadConfig(
     opencodeDirectory: resolvedDirectory,
     opencodeUsername: env.OPENCODE_SERVER_USERNAME?.trim() || undefined,
     opencodePassword: env.OPENCODE_SERVER_PASSWORD?.trim() || undefined,
-    telegramToken: env.TELEGRAM_BOT_TOKEN?.trim() || undefined,
-    telegramEnabled: parseBoolean(env.TELEGRAM_ENABLED, Boolean(env.TELEGRAM_BOT_TOKEN?.trim())),
+    telegramToken,
+    telegramEnabled: parseBoolean(
+      env.TELEGRAM_ENABLED,
+      configFile.channels?.telegram?.enabled ?? Boolean(telegramToken),
+    ),
     whatsappAuthDir,
     whatsappAccountId,
     whatsappDmPolicy: dmPolicy,
