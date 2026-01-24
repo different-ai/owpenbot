@@ -202,3 +202,13 @@ export async function loginWhatsApp(config: Config, logger: Logger) {
     });
   });
 }
+
+export function unpairWhatsApp(config: Config, logger: Logger) {
+  const authDir = path.resolve(config.whatsappAuthDir);
+  if (!fs.existsSync(authDir)) {
+    logger.info({ authDir }, "whatsapp auth directory not found");
+    return;
+  }
+  fs.rmSync(authDir, { recursive: true, force: true });
+  logger.info({ authDir }, "whatsapp auth cleared; run owpenbot to re-pair");
+}

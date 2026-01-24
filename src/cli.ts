@@ -5,7 +5,7 @@ import { loadConfig } from "./config.js";
 import { BridgeStore } from "./db.js";
 import { createLogger } from "./logger.js";
 import { resolvePairingCode } from "./pairing.js";
-import { loginWhatsApp } from "./whatsapp.js";
+import { loginWhatsApp, unpairWhatsApp } from "./whatsapp.js";
 
 const program = new Command();
 
@@ -23,6 +23,7 @@ const runStart = async () => {
     process.env.OPENCODE_DIRECTORY = config.opencodeDirectory;
   }
   const bridge = await startBridge(config, logger);
+  logger.info("Commands: owpenbot qr, owpenbot unpair, owpenbot pairing-code");
 
   const shutdown = async () => {
     logger.info("shutting down");
@@ -61,6 +62,24 @@ whatsapp
     const config = loadConfig(process.env, { requireOpencode: false });
     const logger = createLogger(config.logLevel);
     await loginWhatsApp(config, logger);
+  });
+
+program
+  .command("qr")
+  .description("Print a WhatsApp QR code to pair")
+  .action(async () => {
+    const config = loadConfig(process.env, { requireOpencode: false });
+    const logger = createLogger(config.logLevel);
+    await loginWhatsApp(config, logger);
+  });
+
+program
+  .command("unpair")
+  .description("Clear WhatsApp pairing data")
+  .action(() => {
+    const config = loadConfig(process.env, { requireOpencode: false });
+    const logger = createLogger(config.logLevel);
+    unpairWhatsApp(config, logger);
   });
 
 await program.parseAsync(process.argv);
