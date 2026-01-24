@@ -111,7 +111,21 @@ EOF
 chmod 755 "$OWPENBOT_BIN_DIR/owpenbot"
 
 if ! echo ":$PATH:" | grep -q ":$OWPENBOT_BIN_DIR:"; then
-  echo "Note: add $OWPENBOT_BIN_DIR to your PATH to use 'owpenbot' anywhere."
+  shell_name="$(basename "${SHELL:-}" 2>/dev/null || true)"
+  case "$shell_name" in
+    fish)
+      echo "Add to PATH (fish): set -Ux PATH $OWPENBOT_BIN_DIR \$PATH"
+      ;;
+    zsh)
+      echo "Add to PATH (zsh):  echo 'export PATH=\"$OWPENBOT_BIN_DIR:\$PATH\"' >> ~/.zshrc"
+      ;;
+    bash)
+      echo "Add to PATH (bash): echo 'export PATH=\"$OWPENBOT_BIN_DIR:\$PATH\"' >> ~/.bashrc"
+      ;;
+    *)
+      echo "Add to PATH: export PATH=\"$OWPENBOT_BIN_DIR:\$PATH\""
+      ;;
+  esac
 fi
 
 cat <<EOF

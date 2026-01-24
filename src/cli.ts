@@ -9,11 +9,19 @@ import { loginWhatsApp } from "./whatsapp.js";
 
 const program = new Command();
 
-program.name("owpenbot").description("OpenCode WhatsApp + Telegram bridge");
+program
+  .name("owpenbot")
+  .description("OpenCode WhatsApp + Telegram bridge")
+  .allowExcessArguments(true)
+  .allowUnknownOption(true)
+  .argument("[path]");
 
 const runStart = async () => {
   const config = loadConfig();
   const logger = createLogger(config.logLevel);
+  if (!process.env.OPENCODE_DIRECTORY) {
+    process.env.OPENCODE_DIRECTORY = config.opencodeDirectory;
+  }
   const bridge = await startBridge(config, logger);
 
   const shutdown = async () => {

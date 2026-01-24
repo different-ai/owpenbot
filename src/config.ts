@@ -90,8 +90,8 @@ export function loadConfig(
   env: EnvLike = process.env,
   options: { requireOpencode?: boolean } = {},
 ): Config {
-  const requireOpencode = options.requireOpencode ?? true;
-  const opencodeDirectory = env.OPENCODE_DIRECTORY?.trim();
+  const requireOpencode = options.requireOpencode ?? false;
+  const opencodeDirectory = env.OPENCODE_DIRECTORY?.trim() ?? "";
   if (!opencodeDirectory && requireOpencode) {
     throw new Error("OPENCODE_DIRECTORY is required");
   }
