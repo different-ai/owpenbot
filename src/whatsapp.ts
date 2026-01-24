@@ -167,67 +167,82 @@ export async function loginWhatsApp(config: Config, logger: Logger) {
   const log = logger.child({ channel: "whatsapp" });
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
+  const credsPath = path.join(authDir, "creds.json");
+  const maxAttempts = 2;
 
-  await new Promise<void>((resolve, reject) => {
-    let finished = false;
-    const sock = makeWASocket({
-      auth: {
-        creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, log),
-      },
-      version,
-      logger: log,
-      printQRInTerminal: false,
-      syncFullHistory: false,
-      markOnlineOnConnect: false,
-      browser: ["owpenbot", "cli", "0.1.0"],
-    });
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const result = await new Promise<"linked" | "restart">((resolve) => {
+      let finished = false;
+      const sock = makeWASocket({
+        auth: {
+          creds: state.creds,
+          keys: makeCacheableSignalKeyStore(state.keys, log),
+        },
+        version,
+        logger: log,
+        printQRInTerminal: false,
+        syncFullHistory: false,
+        markOnlineOnConnect: false,
+        browser: ["owpenbot", "cli", "0.1.0"],
+      });
 
-    const finish = (reason: string) => {
-      if (finished) return;
-      finished = true;
-      log.info({ reason }, "whatsapp login finished");
-      sock.end(undefined);
-      resolve();
-    };
+      const finish = (reason: string, status: "linked" | "restart") => {
+        if (finished) return;
+        finished = true;
+        log.info({ reason }, "whatsapp login finished");
+        sock.end(undefined);
+        resolve(status);
+      };
 
-    sock.ev.on("creds.update", async () => {
-      await saveCreds();
-      if (state.creds?.registered) {
-        finish("creds.registered");
-      }
-    });
-    sock.ev.on("connection.update", (update: { connection?: string; qr?: string; lastDisconnect?: unknown }) => {
-      if (update.qr) {
-        qrcode.generate(update.qr, { small: true });
-        log.info("scan the QR code to connect WhatsApp");
-      }
+      sock.ev.on("creds.update", async () => {
+        await saveCreds();
+        if (state.creds?.registered) {
+          finish("creds.registered", "linked");
+        }
+      });
+      sock.ev.on("connection.update", (update: { connection?: string; qr?: string; lastDisconnect?: unknown }) => {
+        if (update.qr) {
+          qrcode.generate(update.qr, { small: true });
+          log.info("scan the QR code to connect WhatsApp");
+        }
 
-      if (update.connection === "open") {
-        finish("connection.open");
-      }
+        if (update.connection === "open") {
+          finish("connection.open", "linked");
+        }
 
-      if (update.connection === "close") {
-        const lastDisconnect = update.lastDisconnect as
-          | { error?: { output?: { statusCode?: number } } }
-          | undefined;
-        const statusCode = lastDisconnect?.error?.output?.statusCode;
-        if (statusCode === 515) {
-          if (state.creds?.registered) {
-            log.info("whatsapp login requires reconnect; completing login");
-            finish("connection.restart.required");
+        if (update.connection === "close") {
+          const lastDisconnect = update.lastDisconnect as
+            | { error?: { output?: { statusCode?: number } } }
+            | undefined;
+          const statusCode = lastDisconnect?.error?.output?.statusCode;
+          if (statusCode === 515) {
+            if (state.creds?.registered || fs.existsSync(credsPath)) {
+              log.info("whatsapp login requires reconnect; completing login");
+              finish("connection.restart.required", "linked");
+            } else {
+              log.warn("whatsapp restart requested before creds registered");
+              finish("connection.restart.required", "restart");
+            }
             return;
           }
-          log.warn("whatsapp restart requested before creds registered");
-          reject(new Error("WhatsApp login restart required"));
-          return;
+          if (state.creds?.registered) {
+            finish("connection.close.registered", "linked");
+          }
         }
-        if (state.creds?.registered) {
-          finish("connection.close.registered");
-        }
-      }
+      });
     });
-  });
+
+    if (result === "linked") {
+      return;
+    }
+
+    if (attempt < maxAttempts) {
+      log.warn("retrying whatsapp login after restart");
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
+  }
+
+  throw new Error("WhatsApp login failed after restart");
 }
 
 export function unpairWhatsApp(config: Config, logger: Logger) {

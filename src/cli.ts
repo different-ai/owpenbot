@@ -30,7 +30,7 @@ import { createLogger } from "./logger.js";
 import { createClient } from "./opencode.js";
 import { loginWhatsApp, unpairWhatsApp } from "./whatsapp.js";
 
-const VERSION = "0.1.10";
+const VERSION = "0.1.11";
 
 type SetupStep = "config" | "whatsapp" | "telegram" | "start";
 
