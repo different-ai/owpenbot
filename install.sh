@@ -2,8 +2,8 @@
 set -euo pipefail
 
 OWPENBOT_REF="${OWPENBOT_REF:-dev}"
-OWPENBOT_REPO="${OWPENBOT_REPO:-https://github.com/different-ai/openwork.git}"
-OWPENBOT_INSTALL_DIR="${OWPENBOT_INSTALL_DIR:-$HOME/.owpenbot/openwork}"
+OWPENBOT_REPO="${OWPENBOT_REPO:-https://github.com/different-ai/owpenbot.git}"
+OWPENBOT_INSTALL_DIR="${OWPENBOT_INSTALL_DIR:-$HOME/.owpenbot/owpenbot}"
 OWPENBOT_BIN_DIR="${OWPENBOT_BIN_DIR:-$HOME/.local/bin}"
 OWPENBOT_INSTALL_METHOD="${OWPENBOT_INSTALL_METHOD:-npm}"
 
@@ -12,14 +12,14 @@ usage() {
 Owpenbot installer (WhatsApp-first)
 
 Environment variables:
-  OWPENBOT_INSTALL_DIR  Install directory (default: ~/.owpenbot/openwork)
-  OWPENBOT_REPO         Git repo (default: https://github.com/different-ai/openwork.git)
+  OWPENBOT_INSTALL_DIR  Install directory (default: ~/.owpenbot/owpenbot)
+  OWPENBOT_REPO         Git repo (default: https://github.com/different-ai/owpenbot.git)
   OWPENBOT_REF          Git ref/branch (default: dev)
   OWPENBOT_BIN_DIR      Bin directory for owpenbot shim (default: ~/.local/bin)
   OWPENBOT_INSTALL_METHOD  Install method: npm|git (default: npm)
 
 Example:
-  OWPENBOT_INSTALL_DIR=~/owpenbot curl -fsSL https://raw.githubusercontent.com/different-ai/openwork/dev/packages/owpenbot/install.sh | bash
+  OWPENBOT_INSTALL_DIR=~/owpenbot curl -fsSL https://raw.githubusercontent.com/different-ai/owpenbot/dev/install.sh | bash
 EOF
 }
 
@@ -71,7 +71,7 @@ else
     fi
   fi
 
-  if [[ ! -d "$OWPENBOT_INSTALL_DIR/packages/owpenbot" ]]; then
+  if [[ ! -f "$OWPENBOT_INSTALL_DIR/package.json" ]]; then
     echo "owpenbot package not found on ref '$OWPENBOT_REF'. Trying dev/main..." >&2
     git -C "$OWPENBOT_INSTALL_DIR" fetch origin --prune
     if git -C "$OWPENBOT_INSTALL_DIR" show-ref --verify --quiet refs/remotes/origin/dev; then
@@ -81,7 +81,7 @@ else
     fi
   fi
 
-  if [[ ! -d "$OWPENBOT_INSTALL_DIR/packages/owpenbot" ]]; then
+  if [[ ! -f "$OWPENBOT_INSTALL_DIR/package.json" ]]; then
     echo "owpenbot package not found after checkout. Aborting." >&2
     exit 1
   fi
@@ -90,10 +90,10 @@ else
   pnpm -C "$OWPENBOT_INSTALL_DIR" install
 
   echo "Building owpenbot..."
-  pnpm -C "$OWPENBOT_INSTALL_DIR/packages/owpenbot" build
+  pnpm -C "$OWPENBOT_INSTALL_DIR" build
 
-  ENV_PATH="$OWPENBOT_INSTALL_DIR/packages/owpenbot/.env"
-  ENV_EXAMPLE="$OWPENBOT_INSTALL_DIR/packages/owpenbot/.env.example"
+  ENV_PATH="$OWPENBOT_INSTALL_DIR/.env"
+  ENV_EXAMPLE="$OWPENBOT_INSTALL_DIR/.env.example"
   if [[ ! -f "$ENV_PATH" ]]; then
     if [[ -f "$ENV_EXAMPLE" ]]; then
       cp "$ENV_EXAMPLE" "$ENV_PATH"
@@ -112,7 +112,7 @@ EOF
   cat <<EOF > "$OWPENBOT_BIN_DIR/owpenbot"
 #!/usr/bin/env bash
 set -euo pipefail
-node "$OWPENBOT_INSTALL_DIR/packages/owpenbot/dist/cli.js" "$@"
+node "$OWPENBOT_INSTALL_DIR/dist/cli.js" "$@"
 EOF
   chmod 755 "$OWPENBOT_BIN_DIR/owpenbot"
 fi

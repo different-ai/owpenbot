@@ -7,7 +7,7 @@ Simple WhatsApp bridge for a running OpenCode server. Telegram support exists bu
 One-command install (recommended):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/different-ai/openwork/dev/packages/owpenbot/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/different-ai/owpenbot/dev/install.sh | bash
 ```
 
 Or install from npm:
@@ -27,10 +27,10 @@ Then follow the guided setup (choose what to configure, link WhatsApp, start).
 1) One-command setup (installs deps, builds, creates `.env` if missing):
 
 ```bash
-pnpm -C packages/owpenbot setup
+pnpm setup
 ```
 
-2) (Optional) Fill in `packages/owpenbot/.env` (see `.env.example`).
+2) (Optional) Fill in `.env` (see `.env.example`).
 
 Required:
 - `OPENCODE_URL`
@@ -105,8 +105,8 @@ owpenwork doctor --reset
 ## Tests
 
 ```bash
-pnpm -C packages/owpenbot test:unit
-pnpm -C packages/owpenbot test:smoke
-pnpm -C packages/owpenbot test:cli
-pnpm -C packages/owpenbot test:npx
+pnpm test:unit
+pnpm test:smoke
+pnpm test:cli
+pnpm test:npx
 ```

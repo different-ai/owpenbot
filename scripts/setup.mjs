@@ -5,17 +5,16 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const packageDir = path.resolve(scriptDir, "..");
-const rootDir = path.resolve(packageDir, "..", "..");
 
 const envPath = path.join(packageDir, ".env");
 const envExamplePath = path.join(packageDir, ".env.example");
 
-const install = spawnSync("pnpm", ["install"], { cwd: rootDir, stdio: "inherit" });
+const install = spawnSync("pnpm", ["install"], { cwd: packageDir, stdio: "inherit" });
 if (install.status !== 0) {
   process.exit(install.status ?? 1);
 }
 
-const build = spawnSync("pnpm", ["-C", packageDir, "build"], { cwd: rootDir, stdio: "inherit" });
+const build = spawnSync("pnpm", ["build"], { cwd: packageDir, stdio: "inherit" });
 if (build.status !== 0) {
   process.exit(build.status ?? 1);
 }

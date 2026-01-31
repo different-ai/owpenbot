@@ -11,8 +11,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/different-ai/openwork.git",
-    "directory": "packages/owpenbot"
+    "url": "git+https://github.com/different-ai/owpenbot.git"
   },
   "keywords": [
     "opencode",
@@ -56,5 +55,15 @@
     "@types/qrcode-terminal": "^0.12.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
-  }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@whiskeysockets/baileys",
+      "better-sqlite3",
+      "esbuild",
+      "protobufjs",
+      "sharp"
+    ]
+  },
+  "packageManager": "pnpm@10.27.0"
 }
