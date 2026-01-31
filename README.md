@@ -1,6 +1,7 @@
 # Owpenbot
 
-Simple WhatsApp bridge for a running OpenCode server. Telegram support exists but is not yet E2E tested.
+Dead simple WhatsApp and Telegram bridge on top of opencode.
+
 
 ## Install + Run (WhatsApp)
 
