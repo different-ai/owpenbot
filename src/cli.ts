@@ -30,9 +30,27 @@ import { BridgeStore } from "./db.js";
 import { createLogger } from "./logger.js";
 import { createClient } from "./opencode.js";
 import { truncateText } from "./text.js";
+import { hasWhatsAppCreds } from "./whatsapp-session.js";
 import { loginWhatsApp, unpairWhatsApp } from "./whatsapp.js";
 
 const VERSION = "0.1.16";
+
+// -----------------------------------------------------------------------------
+// JSON output helpers
+// -----------------------------------------------------------------------------
+
+function outputJson(data: unknown) {
+  console.log(JSON.stringify(data, null, 2));
+}
+
+function outputError(message: string, exitCode = 1): never {
+  if (program.opts().json) {
+    outputJson({ error: message });
+  } else {
+    console.error(`Error: ${message}`);
+  }
+  process.exit(exitCode);
+}
 
 type SetupStep = "config" | "whatsapp" | "telegram" | "start";
 
@@ -128,6 +146,10 @@ function createConsoleReporter(): BridgeReporter {
   };
 }
 
+// -----------------------------------------------------------------------------
+// Config helpers
+// -----------------------------------------------------------------------------
+
 function updateConfig(configPath: string, updater: (cfg: OwpenbotConfigFile) => OwpenbotConfigFile) {
   const { config } = readConfigFile(configPath);
   const base = config ?? { version: 1 };
@@ -135,6 +157,39 @@ function updateConfig(configPath: string, updater: (cfg: OwpenbotConfigFile) => 
   next.version = next.version ?? 1;
   writeConfigFile(configPath, next);
   return next;
+}
+
+function getNestedValue(obj: Record<string, unknown>, keyPath: string): unknown {
+  const keys = keyPath.split(".");
+  let current: unknown = obj;
+  for (const key of keys) {
+    if (current === null || current === undefined || typeof current !== "object") {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[key];
+  }
+  return current;
+}
+
+function setNestedValue(obj: Record<string, unknown>, keyPath: string, value: unknown): void {
+  const keys = keyPath.split(".");
+  let current = obj;
+  for (let i = 0; i < keys.length - 1; i += 1) {
+    const key = keys[i];
+    if (current[key] === undefined || current[key] === null || typeof current[key] !== "object") {
+      current[key] = {};
+    }
+    current = current[key] as Record<string, unknown>;
+  }
+  current[keys[keys.length - 1]] = value;
+}
+
+function parseConfigValue(value: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 }
 
 async function runSetupWizard(
@@ -320,6 +375,57 @@ async function runStart(pathOverride?: string) {
   process.on("SIGTERM", shutdown);
 }
 
+// -----------------------------------------------------------------------------
+// QR code generation for non-interactive use
+// -----------------------------------------------------------------------------
+
+async function getWhatsAppQr(
+  config: ReturnType<typeof loadConfig>,
+  format: "ascii" | "base64",
+): Promise<string> {
+  const { createWhatsAppSocket, closeWhatsAppSocket } = await import("./whatsapp-session.js");
+  const logger = createAppLogger(config);
+
+  return new Promise((resolve, reject) => {
+    let resolved = false;
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        reject(new Error("Timeout waiting for QR code"));
+      }
+    }, 30000);
+
+    void createWhatsAppSocket({
+      authDir: config.whatsappAuthDir,
+      logger,
+      printQr: false,
+      onQr: (qr) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+
+        if (format === "base64") {
+          resolve(Buffer.from(qr).toString("base64"));
+        } else {
+          resolve(qr);
+        }
+      },
+    })
+      .then((sock) => {
+        setTimeout(() => {
+          closeWhatsAppSocket(sock);
+        }, resolved ? 500 : 30500);
+      })
+      .catch((err) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          reject(err);
+        }
+      });
+  });
+}
+
 async function runGuidedFlow(pathArg: string | undefined, opts: { nonInteractive: boolean; check: boolean }) {
   if (pathArg?.trim()) {
     process.env.OPENCODE_DIRECTORY = pathArg.trim();
@@ -434,7 +540,8 @@ program
   .description("OpenCode WhatsApp + Telegram bridge")
   .argument("[path]")
   .option("--non-interactive", "Run setup defaults and exit", false)
-  .option("--check", "Validate config/auth and exit", false);
+  .option("--check", "Validate config/auth and exit", false)
+  .option("--json", "Output in JSON format", false);
 
 program
   .command("start")
@@ -449,6 +556,66 @@ program.action((pathArg: string | undefined) => {
   const opts = program.opts<{ nonInteractive: boolean; check: boolean }>();
   return runGuidedFlow(pathArg, { nonInteractive: Boolean(opts.nonInteractive), check: Boolean(opts.check) });
 });
+
+// -----------------------------------------------------------------------------
+// config subcommand
+// -----------------------------------------------------------------------------
+
+const configCmd = program.command("config").description("Manage configuration");
+
+configCmd
+  .command("get")
+  .argument("[key]", "Config key to get (dot notation, e.g., channels.whatsapp.dmPolicy)")
+  .description("Get config value(s)")
+  .action((key?: string) => {
+    const useJson = program.opts().json;
+    const config = loadConfig(process.env, { requireOpencode: false });
+    const { config: configFile } = readConfigFile(config.configPath);
+
+    if (key) {
+      const value = getNestedValue(configFile as Record<string, unknown>, key);
+      if (useJson) {
+        outputJson({ [key]: value });
+      } else {
+        if (value === undefined) {
+          console.log(`${key}: (not set)`);
+        } else if (typeof value === "object") {
+          console.log(`${key}: ${JSON.stringify(value, null, 2)}`);
+        } else {
+          console.log(`${key}: ${value}`);
+        }
+      }
+    } else {
+      if (useJson) {
+        outputJson(configFile);
+      } else {
+        console.log(JSON.stringify(configFile, null, 2));
+      }
+    }
+  });
+
+configCmd
+  .command("set")
+  .argument("<key>", "Config key to set (dot notation)")
+  .argument("<value>", "Value to set (JSON for arrays/objects)")
+  .description("Set config value")
+  .action((key: string, value: string) => {
+    const useJson = program.opts().json;
+    const config = loadConfig(process.env, { requireOpencode: false });
+
+    const parsedValue = parseConfigValue(value);
+    const updated = updateConfig(config.configPath, (cfg) => {
+      const next = { ...cfg } as Record<string, unknown>;
+      setNestedValue(next, key, parsedValue);
+      return next as OwpenbotConfigFile;
+    });
+
+    if (useJson) {
+      outputJson({ success: true, key, value: parsedValue, config: updated });
+    } else {
+      console.log(`Set ${key} = ${JSON.stringify(parsedValue)}`);
+    }
+  });
 
 program
   .command("setup")
@@ -486,12 +653,26 @@ login
 
 program
   .command("pairing-code")
-  .description("List pending pairing codes")
+  .description("List pending pairing codes (alias for pairing list)")
   .action(() => {
+    const useJson = program.opts().json;
     const config = loadConfig(process.env, { requireOpencode: false });
     const store = new BridgeStore(config.dbPath);
     store.prunePairingRequests();
     const requests = store.listPairingRequests("whatsapp");
+    store.close();
+    if (useJson) {
+      outputJson(
+        requests.map((request) => ({
+          code: request.code,
+          peerId: request.peer_id,
+          channel: request.channel,
+          createdAt: new Date(request.created_at).toISOString(),
+          expiresAt: new Date(request.expires_at).toISOString(),
+        })),
+      );
+      return;
+    }
     if (!requests.length) {
       console.log("No pending pairing requests.");
     } else {
@@ -499,10 +680,34 @@ program
         console.log(`${request.code} ${request.peer_id}`);
       }
     }
-    store.close();
   });
 
 const whatsapp = program.command("whatsapp").description("WhatsApp helpers");
+
+whatsapp
+  .command("status")
+  .description("Show WhatsApp status")
+  .action(() => {
+    const useJson = program.opts().json;
+    const config = loadConfig(process.env, { requireOpencode: false });
+    const linked = hasWhatsAppCreds(config.whatsappAuthDir);
+
+    if (useJson) {
+      outputJson({
+        linked,
+        dmPolicy: config.whatsappDmPolicy,
+        selfChatMode: config.whatsappSelfChatMode,
+        authDir: config.whatsappAuthDir,
+        accountId: config.whatsappAccountId,
+        allowFrom: [...config.whatsappAllowFrom],
+      });
+    } else {
+      console.log(`WhatsApp linked: ${linked ? "yes" : "no"}`);
+      console.log(`DM policy: ${config.whatsappDmPolicy}`);
+      console.log(`Self chat mode: ${config.whatsappSelfChatMode ? "yes" : "no"}`);
+      console.log(`Auth dir: ${config.whatsappAuthDir}`);
+    }
+  });
 
 whatsapp
   .command("login")
@@ -516,8 +721,106 @@ whatsapp
   .command("logout")
   .description("Logout of WhatsApp and clear auth state")
   .action(() => {
+    const useJson = program.opts().json;
     const config = loadConfig(process.env, { requireOpencode: false });
     unpairWhatsApp(config, createAppLogger(config));
+
+    if (useJson) {
+      outputJson({ success: true, message: "WhatsApp auth cleared" });
+    } else {
+      console.log("WhatsApp auth cleared.");
+    }
+  });
+
+whatsapp
+  .command("qr")
+  .description("Get WhatsApp QR code non-interactively")
+  .option("--format <format>", "Output format: ascii or base64", "ascii")
+  .action(async (opts) => {
+    const useJson = program.opts().json;
+    const config = loadConfig(process.env, { requireOpencode: false });
+    const format = opts.format as "ascii" | "base64";
+
+    if (hasWhatsAppCreds(config.whatsappAuthDir)) {
+      if (useJson) {
+        outputJson({ error: "WhatsApp already linked. Use 'whatsapp logout' first." });
+      } else {
+        console.log("WhatsApp already linked. Use 'whatsapp logout' first.");
+      }
+      process.exit(1);
+    }
+
+    try {
+      const qr = await getWhatsAppQr(config, format);
+
+      if (useJson) {
+        outputJson({ qr, format });
+      } else {
+        if (format === "ascii") {
+          const qrcode = await import("qrcode-terminal");
+          qrcode.default.generate(qr, { small: true });
+        } else {
+          console.log(qr);
+        }
+      }
+    } catch (error) {
+      if (useJson) {
+        outputJson({ error: String(error) });
+      } else {
+        console.error(`Failed to get QR code: ${String(error)}`);
+      }
+      process.exit(1);
+    }
+  });
+
+// -----------------------------------------------------------------------------
+// telegram subcommand
+// -----------------------------------------------------------------------------
+
+const telegram = program.command("telegram").description("Telegram helpers");
+
+telegram
+  .command("status")
+  .description("Show Telegram status")
+  .action(() => {
+    const useJson = program.opts().json;
+    const config = loadConfig(process.env, { requireOpencode: false });
+
+    if (useJson) {
+      outputJson({
+        configured: Boolean(config.telegramToken),
+        enabled: config.telegramEnabled,
+        hasToken: Boolean(config.telegramToken),
+      });
+    } else {
+      console.log(`Telegram configured: ${config.telegramToken ? "yes" : "no"}`);
+      console.log(`Telegram enabled: ${config.telegramEnabled ? "yes" : "no"}`);
+    }
+  });
+
+telegram
+  .command("set-token")
+  .argument("<token>", "Telegram bot token")
+  .description("Set Telegram bot token")
+  .action((token: string) => {
+    const useJson = program.opts().json;
+    const config = loadConfig(process.env, { requireOpencode: false });
+
+    updateConfig(config.configPath, (cfg) => {
+      const next = { ...cfg } as OwpenbotConfigFile;
+      next.channels = next.channels ?? {};
+      next.channels.telegram = {
+        token,
+        enabled: true,
+      };
+      return next;
+    });
+
+    if (useJson) {
+      outputJson({ success: true, message: "Telegram token saved" });
+    } else {
+      console.log("Telegram token saved.");
+    }
   });
 
 program
@@ -542,18 +845,33 @@ pairing
   .command("list")
   .description("List pending pairing requests")
   .action(() => {
+    const useJson = program.opts().json;
     const config = loadConfig(process.env, { requireOpencode: false });
     const store = new BridgeStore(config.dbPath);
     store.prunePairingRequests();
-    const requests = store.listPairingRequests("whatsapp");
+    const requests = store.listPairingRequests();
+    store.close();
+
+    if (useJson) {
+      outputJson(
+        requests.map((request) => ({
+          code: request.code,
+          peerId: request.peer_id,
+          channel: request.channel,
+          createdAt: new Date(request.created_at).toISOString(),
+          expiresAt: new Date(request.expires_at).toISOString(),
+        })),
+      );
+      return;
+    }
+
     if (!requests.length) {
       console.log("No pending pairing requests.");
     } else {
       for (const request of requests) {
-        console.log(`${request.code} ${request.peer_id}`);
+        console.log(`${request.code} ${request.channel} ${request.peer_id}`);
       }
     }
-    store.close();
   });
 
 pairing
@@ -561,17 +879,26 @@ pairing
   .argument("<code>")
   .description("Approve a pairing request")
   .action((code: string) => {
+    const useJson = program.opts().json;
     const config = loadConfig(process.env, { requireOpencode: false });
     const store = new BridgeStore(config.dbPath);
     const request = store.approvePairingRequest("whatsapp", code.trim());
     if (!request) {
-      console.log("Pairing code not found or expired.");
       store.close();
-      return;
+      if (useJson) {
+        outputJson({ success: false, error: "Pairing code not found or expired" });
+      } else {
+        console.log("Pairing code not found or expired.");
+      }
+      process.exit(1);
     }
     store.allowPeer("whatsapp", request.peer_id);
     store.close();
-    console.log(`Approved ${request.peer_id}`);
+    if (useJson) {
+      outputJson({ success: true, peerId: request.peer_id, channel: request.channel });
+    } else {
+      console.log(`Approved ${request.peer_id}`);
+    }
   });
 
 pairing
@@ -579,25 +906,53 @@ pairing
   .argument("<code>")
   .description("Deny a pairing request")
   .action((code: string) => {
+    const useJson = program.opts().json;
     const config = loadConfig(process.env, { requireOpencode: false });
     const store = new BridgeStore(config.dbPath);
     const ok = store.denyPairingRequest("whatsapp", code.trim());
     store.close();
-    console.log(ok ? "Removed pairing request." : "Pairing code not found.");
+    if (useJson) {
+      outputJson({ success: ok, message: ok ? "Pairing request removed" : "Pairing code not found" });
+    } else {
+      console.log(ok ? "Removed pairing request." : "Pairing code not found.");
+    }
+    process.exit(ok ? 0 : 1);
   });
 
 program
   .command("status")
-  .description("Show WhatsApp and OpenCode status")
+  .description("Show WhatsApp, Telegram, and OpenCode status")
   .action(async () => {
+    const useJson = program.opts().json;
     const config = loadConfig(process.env, { requireOpencode: false });
-    const authPath = `${config.whatsappAuthDir}/creds.json`;
-    const linked = fs.existsSync(authPath);
-    console.log(`Config: ${config.configPath}`);
-    console.log(`WhatsApp linked: ${linked ? "yes" : "no"}`);
-    console.log(`Telegram configured: ${config.telegramToken ? "yes" : "no"}`);
-    console.log(`Auth dir: ${config.whatsappAuthDir}`);
-    console.log(`OpenCode URL: ${config.opencodeUrl}`);
+    const whatsappLinked = hasWhatsAppCreds(config.whatsappAuthDir);
+
+    if (useJson) {
+      outputJson({
+        config: config.configPath,
+        whatsapp: {
+          linked: whatsappLinked,
+          dmPolicy: config.whatsappDmPolicy,
+          selfChatMode: config.whatsappSelfChatMode,
+          authDir: config.whatsappAuthDir,
+        },
+        telegram: {
+          configured: Boolean(config.telegramToken),
+          enabled: config.telegramEnabled,
+        },
+        opencode: {
+          url: config.opencodeUrl,
+          directory: config.opencodeDirectory,
+        },
+      });
+    } else {
+      console.log(`Config: ${config.configPath}`);
+      console.log(`WhatsApp linked: ${whatsappLinked ? "yes" : "no"}`);
+      console.log(`WhatsApp DM policy: ${config.whatsappDmPolicy}`);
+      console.log(`Telegram configured: ${config.telegramToken ? "yes" : "no"}`);
+      console.log(`Auth dir: ${config.whatsappAuthDir}`);
+      console.log(`OpenCode URL: ${config.opencodeUrl}`);
+    }
   });
 
 program

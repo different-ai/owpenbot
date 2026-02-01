@@ -103,7 +103,74 @@ async function runSetupInteractive() {
   }
 }
 
+async function runTelegramTokenFromEnv() {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "owpenbot-"));
+  const tokenEnv = process.env.OWPENBOT_TEST_TOKEN_ENV ?? "123456:env-test";
+  const env = {
+    ...process.env,
+    OWPENBOT_DATA_DIR: tempDir,
+    OWPENBOT_DB_PATH: path.join(tempDir, "owpenbot.db"),
+    OWPENBOT_CONFIG_PATH: path.join(tempDir, "owpenbot.json"),
+    OPENCODE_DIRECTORY: tempDir,
+    OWPENWORK_TEST_TELEGRAM_TOKEN: tokenEnv,
+  };
+
+  const result = await run("node", [cliPath, "login", "telegram"], { env, timeoutMs: 5000 });
+  if (result.code !== 0) {
+    throw new Error(`Telegram login (env token) failed: ${result.stderr}`);
+  }
+
+  const cfgRaw = await fs.readFile(path.join(tempDir, "owpenbot.json"), "utf-8");
+  const cfg = JSON.parse(cfgRaw);
+  if (cfg?.channels?.telegram?.token !== tokenEnv) {
+    throw new Error("Telegram token from env not persisted to config");
+  }
+
+  const status = await run("node", [cliPath, "telegram", "status", "--json"], { env, timeoutMs: 3000 });
+  if (status.code !== 0) {
+    throw new Error(`Telegram status failed: ${status.stderr}`);
+  }
+  const statusJson = JSON.parse(status.stdout || "{}");
+  if (!statusJson.configured) {
+    throw new Error("Telegram status did not report configured=true");
+  }
+}
+
+async function runTelegramTokenFromCli() {
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "owpenbot-"));
+  const tokenCli = process.env.OWPENBOT_TEST_TOKEN_CLI ?? "654321:cli-test";
+  const env = {
+    ...process.env,
+    OWPENBOT_DATA_DIR: tempDir,
+    OWPENBOT_DB_PATH: path.join(tempDir, "owpenbot.db"),
+    OWPENBOT_CONFIG_PATH: path.join(tempDir, "owpenbot.json"),
+    OPENCODE_DIRECTORY: tempDir,
+  };
+
+  const result = await run("node", [cliPath, "telegram", "set-token", tokenCli], { env, timeoutMs: 3000 });
+  if (result.code !== 0) {
+    throw new Error(`Telegram set-token failed: ${result.stderr}`);
+  }
+
+  const cfgRaw = await fs.readFile(path.join(tempDir, "owpenbot.json"), "utf-8");
+  const cfg = JSON.parse(cfgRaw);
+  if (cfg?.channels?.telegram?.token !== tokenCli) {
+    throw new Error("Telegram token from CLI not persisted to config");
+  }
+
+  const status = await run("node", [cliPath, "status", "--json"], { env, timeoutMs: 3000 });
+  if (status.code !== 0) {
+    throw new Error(`Status --json failed: ${status.stderr}`);
+  }
+  const statusJson = JSON.parse(status.stdout || "{}");
+  if (!statusJson?.telegram?.configured) {
+    throw new Error("Status --json did not report telegram configured=true");
+  }
+}
+
 await runHelp();
 await runSetupNonInteractive();
 await runSetupInteractive();
+await runTelegramTokenFromEnv();
+await runTelegramTokenFromCli();
 console.log("CLI smoke tests passed");
