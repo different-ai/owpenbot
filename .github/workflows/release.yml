@@ -46,11 +46,6 @@ jobs:
             asset: owpenbot-windows-x64.zip
             archive: zip
             bin: owpenbot.exe
-          - os: windows-latest
-            target: bun-windows-arm64
-            asset: owpenbot-windows-arm64.zip
-            archive: zip
-            bin: owpenbot.exe
 
     steps:
       - uses: actions/checkout@v4
