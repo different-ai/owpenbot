@@ -1,0 +1,124 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: bun-darwin-arm64
+            asset: owpenbot-darwin-arm64.zip
+            archive: zip
+            bin: owpenbot
+          - os: macos-13
+            target: bun-darwin-x64
+            asset: owpenbot-darwin-x64.zip
+            archive: zip
+            bin: owpenbot
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            asset: owpenbot-linux-x64.tar.gz
+            archive: tar.gz
+            bin: owpenbot
+          - os: ubuntu-latest
+            target: bun-linux-arm64
+            asset: owpenbot-linux-arm64.tar.gz
+            archive: tar.gz
+            bin: owpenbot
+          - os: windows-latest
+            target: bun-windows-x64
+            asset: owpenbot-windows-x64.zip
+            archive: zip
+            bin: owpenbot.exe
+          - os: windows-latest
+            target: bun-windows-arm64
+            asset: owpenbot-windows-arm64.zip
+            archive: zip
+            bin: owpenbot.exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build owpenbot
+        run: |
+          pnpm build
+          mkdir -p dist/bin
+          bun build --compile dist/cli.js --outfile dist/bin/${{ matrix.bin }} --target ${{ matrix.target }}
+
+      - name: Package archive
+        if: runner.os != 'Windows'
+        run: |
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            zip -j "${{ matrix.asset }}" "dist/bin/${{ matrix.bin }}"
+          else
+            tar -czf "${{ matrix.asset }}" -C dist/bin "${{ matrix.bin }}"
+          fi
+
+      - name: Package archive (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Compress-Archive -Path "dist\\bin\\${{ matrix.bin }}" -DestinationPath "${{ matrix.asset }}" -Force
+
+      - name: Generate checksum
+        if: runner.os != 'Windows'
+        run: |
+          shasum -a 256 "${{ matrix.asset }}" > SHA256SUMS
+
+      - name: Generate checksum (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          $hash = (Get-FileHash -Algorithm SHA256 "${{ matrix.asset }}").Hash.ToLower()
+          "$hash  ${{ matrix.asset }}" | Out-File -FilePath SHA256SUMS -Encoding ascii
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: owpenbot-${{ matrix.target }}
+          path: |
+            ${{ matrix.asset }}
+            SHA256SUMS
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Merge checksums
+        run: |
+          find dist -name "SHA256SUMS" -type f -print0 | xargs -0 cat | sort > SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/**/owpenbot-*
+            SHA256SUMS
